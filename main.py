@@ -11,7 +11,7 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
-BLUE = (0, 0, 255)
+BLUE = (75, 75, 255)
 
 # Screen dimensions
 SCREEN_WIDTH = 800
@@ -30,67 +30,50 @@ class Player(pygame.sprite.Sprite):
         # Call the parent's constructor
         super().__init__()
 
-        # Create an image of the block, and fill it with a color.
-        # This could also be an image loaded from the disk.
+        # Create an invisible hitbox
+        self.rect = pygame.Rect(0, 0, 40, 40)  # Same size as your previous invisible surface
+
+        # Load the cube image
         self.original_image = pygame.image.load('cube.png').convert_alpha()
+
+        # Create a visual sprite that follows the hitbox
         self.image = self.original_image
-        self.rect = self.image.get_rect()
+
+        # Initialize angle for potential rotation
+        self.angle = 0
 
         # Set speed vector of player
         self.change_x = 0
         self.change_y = 0
-
-        # Initialize angle
-        self.angle = 0
 
         # List of sprites we can bump against
         self.level = None
 
     def update(self):
         """ Move the player. """
-        # Gravity
+        # Store the initial center position
+        old_center = self.rect.center
+
+        # Gravity and movement (rest of your existing update method)
         self.calc_grav()
 
         # Move left/right
         self.rect.x += self.change_x
 
-        # See if we hit anything
+        # Collision detection (your existing code)
         block_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
         for block in block_hit_list:
-            # If we are moving right,
-            # set our right side to the left side of the item we hit
             if self.change_x > 0:
                 self.rect.right = block.rect.left
             elif self.change_x < 0:
-                # Otherwise if we are moving left, do the opposite.
                 self.rect.left = block.rect.right
 
         # Move up/down
         self.rect.y += self.change_y
 
-        # Store current position before rotation
-        current_x = self.rect.x
-        current_y = self.rect.y
-        current_bottom = self.rect.bottom
-
-        # Update rotation angle
-        if not self.change_y == 0:
-            self.angle += 10
-        else:
-            self.angle = 0
-
-        # Rotate image
-        self.image = pygame.transform.rotate(self.original_image, self.angle)
-
-        # Get new rect but preserve position
-        old_center = self.rect.center
-        self.rect = self.image.get_rect()
-        self.rect.center = old_center
-
-        # Check and see if we hit anything
+        # Vertical collision detection (your existing code)
         block_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
         for block in block_hit_list:
-            # Reset our position based on the top/bottom of the object.
             if self.change_y > 0:
                 self.rect.bottom = block.rect.top
             elif self.change_y < 0:
@@ -99,12 +82,38 @@ class Player(pygame.sprite.Sprite):
             # Stop our vertical movement
             self.change_y = 0
 
+        # Determine if on ground
+        on_ground = (len(pygame.sprite.spritecollide(self, self.level.platform_list, False)) > 0
+                     or self.rect.bottom >= SCREEN_HEIGHT)
+
+        # Rotation logic
+        if on_ground:
+            # Snap to nearest 90 degrees when on ground
+            self.angle = round(self.angle / 90) * 90
+        else:
+            if self.change_x < 0:
+                self.angle += 5
+            if self.change_x > 0:
+                self.angle -= 5
+        # Ensure the visual image follows the hitbox
+        rotated_image = pygame.transform.rotate(self.original_image, self.angle)
+
+        # Create a new surface the size of the rect
+        self.image = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+
+        # Calculate the position to blit the rotated image so it's centered
+        x = (self.rect.width - rotated_image.get_width()) // 2
+        y = (self.rect.height - rotated_image.get_height()) // 2
+
+        # Blit the rotated image onto the surface
+        self.image.blit(rotated_image, (x, y))
+
     def calc_grav(self):
         """ Calculate effect of gravity. """
         if self.change_y == 0:
             self.change_y = 1
         else:
-            self.change_y += .35
+            self.change_y += 1.1
 
         # See if we are on the ground.
         if self.rect.y >= SCREEN_HEIGHT - self.rect.height and self.change_y >= 0:
@@ -123,7 +132,7 @@ class Player(pygame.sprite.Sprite):
 
         # If it is ok to jump, set our speed upwards
         if len(platform_hit_list) > 0 or self.rect.bottom >= SCREEN_HEIGHT:
-            self.change_y = -10
+            self.change_y = -18
 
     # Player-controlled movement:
     def go_left(self):
@@ -149,7 +158,7 @@ class Platform(pygame.sprite.Sprite):
         super().__init__()
 
         self.image = pygame.Surface([width, height])
-        self.image.fill(GREEN)
+        self.image.fill(WHITE)
 
         self.rect = self.image.get_rect()
 
@@ -179,7 +188,7 @@ class Level():
         """ Draw everything on this level. """
 
         # Draw the background
-        screen.fill(BLUE)
+        screen.fill(BLACK)
 
         # Draw all the sprite lists that we have
         self.platform_list.draw(screen)
