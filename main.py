@@ -12,12 +12,48 @@ WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (75, 75, 255)
+DARKBLUE = (0, 0, 25)
 
 # Screen dimensions
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 1152
+SCREEN_HEIGHT = 648
 
+class MovingGrid:
+    def __init__(self, screen_width, screen_height, grid_size=40):
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        self.grid_size = 120
 
+        # Grid movement speed
+        self.offset_x = 5
+        self.offset_y = 5
+
+        # Grid color
+        self.color = (GREEN)
+
+    def update(self, player_speed_x=0, player_speed_y=0):
+        # Update grid offset based on player movement
+        self.offset_x -= player_speed_x * 0.5
+        self.offset_y -= player_speed_y * 0.5
+
+        # Wrap around to create continuous movement
+        self.offset_x %= self.grid_size
+        self.offset_y %= self.grid_size
+
+    def draw(self, screen):
+        # Draw vertical lines
+        for x in range(-self.grid_size, self.screen_width + self.grid_size, self.grid_size):
+            adjusted_x = x + self.offset_x
+            pygame.draw.line(screen, self.color,
+                             (adjusted_x, 0),
+                             (adjusted_x, self.screen_height), 1)
+
+        # Draw horizontal lines
+        for y in range(-self.grid_size, self.screen_height + self.grid_size, self.grid_size):
+            adjusted_y = y + self.offset_y
+            pygame.draw.line(screen, self.color,
+                             (0, adjusted_y),
+                             (self.screen_width, adjusted_y), 1)
 class Player(pygame.sprite.Sprite):
     """
     This class represents the bar at the bottom that the player controls.
@@ -36,7 +72,7 @@ class Player(pygame.sprite.Sprite):
         # Load the cube image
         self.original_image = pygame.image.load('cube.png').convert_alpha()
 
-        # Create a visual sprite that follows the hitbox
+        # Create a visual sprite that follows the hit box
         self.image = self.original_image
 
         # Initialize angle for potential rotation
@@ -67,7 +103,39 @@ class Player(pygame.sprite.Sprite):
                 self.rect.right = block.rect.left
             elif self.change_x < 0:
                 self.rect.left = block.rect.right
+        if len(pygame.sprite.spritecollide(self, self.level.enemy_list, False)) >= 1:
+            screen = pygame.display.get_surface()
+            # Center of the circle will be the player's center
+            center_x, center_y = self.rect.center
+            # Create a surface for the expanding circle
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            grid = MovingGrid(SCREEN_WIDTH, SCREEN_HEIGHT)
+            pygame.mixer.Sound('death.ogg').play()
 
+            for radius in range(0, 100, 10):
+                screen.fill(BLACK)
+                self.level.draw(screen, grid)
+                # Create a new surface for the circle
+                overlay.fill((0, 0, 0, 0))
+
+                # Draw expanding circle
+                pygame.draw.circle(overlay, (242, 190, 70), (center_x, center_y), radius, 5)
+
+                # Blend the overlay
+                screen.blit(overlay, (0, 0))
+
+                # Update display
+                pygame.display.flip()
+
+                # Control speed of expansion
+                pygame.time.delay(20)
+            screen.fill(BLACK)
+            self.level.draw(screen, grid)
+            pygame.display.flip()
+            # Quit the game
+            pygame.time.delay(1000)
+            pygame.quit()
+            exit()
         # Move up/down
         self.rect.y += self.change_y
 
@@ -83,9 +151,10 @@ class Player(pygame.sprite.Sprite):
             self.change_y = 0
 
         # Determine if on ground
+        self.rect.y += 2
         on_ground = (len(pygame.sprite.spritecollide(self, self.level.platform_list, False)) > 0
-                     or self.rect.bottom >= SCREEN_HEIGHT)
-
+                     or self.rect.bottom >= SCREEN_HEIGHT - 40)
+        self.rect.y -= 2
         # Rotation logic
         if on_ground:
             # Snap to nearest 90 degrees when on ground
@@ -116,9 +185,9 @@ class Player(pygame.sprite.Sprite):
             self.change_y += 1.1
 
         # See if we are on the ground.
-        if self.rect.y >= SCREEN_HEIGHT - self.rect.height and self.change_y >= 0:
+        if self.rect.y >= SCREEN_HEIGHT-40 - self.rect.height and self.change_y >= 0:
             self.change_y = 0
-            self.rect.y = SCREEN_HEIGHT - self.rect.height
+            self.rect.y = SCREEN_HEIGHT-40 - self.rect.height
 
     def jump(self):
         """ Called when user hits 'jump' button. """
@@ -131,7 +200,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.y -= 2
 
         # If it is ok to jump, set our speed upwards
-        if len(platform_hit_list) > 0 or self.rect.bottom >= SCREEN_HEIGHT:
+        if len(platform_hit_list) > 0 or self.rect.bottom >= SCREEN_HEIGHT-40:
             self.change_y = -18
 
     # Player-controlled movement:
@@ -147,7 +216,6 @@ class Player(pygame.sprite.Sprite):
         """ Called when the user lets off the keyboard. """
         self.change_x = 0
 
-
 class Platform(pygame.sprite.Sprite):
     """ Platform the user can jump on """
 
@@ -158,8 +226,41 @@ class Platform(pygame.sprite.Sprite):
         super().__init__()
 
         self.image = pygame.Surface([width, height])
-        self.image.fill(WHITE)
+        self.image.fill(DARKBLUE)
+        self.rect = pygame.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
+class Coin(pygame.sprite.Sprite):
+    def __init__(self):
+        """ Platform constructor. Assumes constructed with user passing in
+            an array of 5 numbers like what's defined at the top of this code.
+            """
+        super().__init__()
 
+        self.image = pygame.image.load('coin.gif')
+        self.rect = pygame.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
+
+
+
+class Spike(pygame.sprite.Sprite):
+    def __init__(self, direction):
+        super().__init__()
+
+        # Create the surface
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+
+        if direction == 1:  # Point up
+            points = [(20, 1), (1, 39), (39, 39)]  # Adjusted points
+        elif direction == 2:  # Point right
+            points = [(1, 1), (1, 39), (39, 20)]  # Adjusted points
+        elif direction == 3:  # Point down
+            points = [(1, 1), (39, 1), (20, 39)]  # Adjusted points
+        elif direction == 4:  # Point left
+            points = [(39, 1), (39, 39), (1, 20)]  # Adjusted points
+
+        # Draw the polygon
+        pygame.draw.polygon(self.image, DARKBLUE, points)
+        pygame.draw.polygon(self.image, WHITE, points, 2)
+
+        # Create rect
         self.rect = self.image.get_rect()
 
 
@@ -184,15 +285,18 @@ class Level():
         self.platform_list.update()
         self.enemy_list.update()
 
-    def draw(self, screen):
+    def draw(self, screen, grid=None):
         """ Draw everything on this level. """
 
         # Draw the background
         screen.fill(BLACK)
-
+        if grid:
+            grid.draw(screen)
         # Draw all the sprite lists that we have
         self.platform_list.draw(screen)
         self.enemy_list.draw(screen)
+        pygame.draw.rect(screen, DARKBLUE, pygame.Rect(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40))
+        pygame.draw.rect(screen, WHITE, pygame.Rect(0-2, SCREEN_HEIGHT - 40, SCREEN_WIDTH+4, 42), 2)
 
     def shift_world(self, shift_x):
         """ When the user moves left/right and we need to scroll
@@ -218,74 +322,208 @@ class Level_01(Level):
 
         # Call the parent constructor
         Level.__init__(self, player)
-
-        self.level_limit = -1000
-
         # Array with width, height, x, and y of platform
-        level = [[210, 70, 500, 500],
-                 [210, 70, 800, 400],
-                 [210, 70, 1000, 500],
-                 [210, 70, 1120, 280],
+        level = [[10, 2, 0],
+                 [11, 2, 0],
+                 [15, 4, 0],
+                 [19, 1, 4],
+                 [20, 2, 1],
+                 [20, 1, 0],
+                 [20, 5, 0],
+                 [21, 1, 0],
+                 [22, 1, 0],
+                 [23, 1, 0],
+                 [21, 2, 1],
+                 [22, 2, 1],
+                 [23, 2, 1],
+                 [26, 5, 0],
+                 [26, 8, 0],
+                 [24, 1, 1],
+                 [25, 1, 1],
+                 [26, 1, 1],
+                 [27, 1, 1],
+                 [28, 1, 1],
+                 [29, 1, 1],
+                 [30, 1, 1],
+                 [31, 1, 1],
+                 [32, 1, 1],
+                 [33, 1, 1],
+                 [34, 1, 1],
+                 [35, 1, 1],
+                 [36, 1, 1],
+                 [37, 1, 1],
+                 [38, 1, 1],
+                 [39, 1, 1],
+                 [40, 1, 1],
+                 [41, 1, 1],
+                 [42, 1, 1],
+                 [43, 1, 1],
+                 [44, 1, 1],
+                 [45, 1, 1],
+                 [46, 1, 1],
+                 [47, 1, 1],
+                 [48, 1, 1],
+                 [49, 1, 1],
+                 [50, 1, 1],
+                 [51, 1, 1],
+                 [52, 1, 1],
+                 [53, 1, 1],
+                 [54, 1, 1],
+                 [55, 1, 1],
+                 [56, 1, 1],
+                 [57, 1, 1],
+                 [58, 1, 1],
+                 [59, 1, 1],
+                 [60, 1, 1],
+                 [61, 1, 1],
+                 [62, 1, 1],
+                 [63, 1, 1],
+                 [64, 1, 1],
+                 [65, 1, 1],
+                 [66, 1, 1],
+                 [67, 1, 1],
+                 [68, 1, 1],
+                 [69, 1, 1],
+                 [70, 1, 1],
+                 [71, 1, 1],
+                 [72, 1, 1],
+                 [73, 1, 1],
+                 [74, 1, 1],
+                 [75, 1, 1],
+                 [76, 1, 1],
+                 [77, 1, 1],
+                 [78, 1, 1],
+                 [79, 1, 1],
+                 [80, 1, 1],
+                 [27, 5, 0],
+                 [27, 6, 0],
+                 [27, 7, 0],
+                 [27, 8, 0],
+                 [30, 6, 3],
+                 [31, 6, 3],
+                 [30, 9, 0],
+                 [31, 9, 0],
+                 [30, 10, 0],
+                 [31, 10, 0],
+                 [30, 8, 0],
+                 [30, 7, 0],
+                 [31, 8, 0],
+                 [31, 7, 0],
+                 [29, 12, 0],
+                 [29, 8, 4],
+                 [29, 7, 4],
+                 [29, 9, 4],
+                 [29, 10, 4],
+                 [30, 11, 1],
+                 [31, 11, 1],
+                 [32, 10, 2],
+                 [32, 9, 2],
+                 [32, 8, 2],
+                 [32, 7, 2],
+                 [28, 3, 0],
+                 [29, 3, 0],
+                 [31, 3, 0],
+                 [33, 3, 0],
+                 [36, 3, 0],
+                 [40, 4, 0],
+                 [40, 7, 0],
+                 [40, 10, 0],
+                 [40, 14, 0],
+                 [40, 13, 3],
+                 [41, 7, 2],
+                 [39, 10, 4],
+                 [44, 10, 0],
+                 [47, 10, 0],
+                 [47, 7, 0],
+                 [46, 7, 4],
+                 [47, 13, 3],
+                 [47, 14, 0],
+                 [50, 10, 0],
+                 [50, 11, 1],
+                 [50, 4, 0],
+                 [52, 4, 0],
+                 [55, 4, 0],
+                 [59, 4, 0],
+                 [64, 4, 0],
+                 [70, 4, 0],
+                 [71, 4, 0],
+                 [72, 4, 0],
+                 [73, 4, 0],
+                 [74, 4, 0],
+                 [75, 4, 0],
+                 [78, 6, 0],
+                 [83, 11, 1],
+                 [83, 10, 0],
+                 [83, 9, 0],
+                 [82, 9, 0],
+                 [84, 9, 0],
+                 [85, 9, 0],
+                 [86, 9, 0],
+                 [86, 10, 0],
+                 [86, 11, 1],
+                 [87, 9, 0],
+                 [91, 9, 0],
+                 [92, 9, 0],
+                 [93, 9, 0],
+                 [100, 1, 0],
+                 [100, 2, 0],
+                 [100, 3, 0],
+                 [100, 4, 0],
+                 [100, 5, 0],
+                 [100, 6, 0],
+                 [100, 7, 0],
+                 [100, 8, 0],
+                 [100, 9, 0],
+                 [100, 10, 0],
+                 [100, 11, 0],
+                 [100, 12, 0],
+                 [100, 13, 0],
+                 [100, 14, 0],
+                 [100, 15, 0],
+                 [100, 16, 0],
                  ]
 
         # Go through the array above and add platforms
         for platform in level:
-            block = Platform(platform[0], platform[1])
-            block.rect.x = platform[2]
-            block.rect.y = platform[3]
-            block.player = self.player
-            self.platform_list.add(block)
-
-
-# Create platforms for the level
-class Level_02(Level):
-    """ Definition for level 2. """
-
-    def __init__(self, player):
-        """ Create level 1. """
-
-        # Call the parent constructor
-        Level.__init__(self, player)
-
-        self.level_limit = -1000
-
-        # Array with type of platform, and x, y location of the platform.
-        level = [[210, 50, 450, 500],
-                 [210, 50, 850, 420],
-                 [210, 50, 1000, 520],
-                 [210, 50, 1120, 300],
-                 ]
-
-        # Go through the array above and add platforms
-        for platform in level:
-            block = Platform(platform[0], platform[1])
-            block.rect.x = platform[2]
-            block.rect.y = platform[3]
-            block.player = self.player
-            self.platform_list.add(block)
+            if platform[2] == 0:
+                block = Platform(40, 40)
+                block.rect.x = platform[0]*40
+                block.rect.y = SCREEN_HEIGHT-platform[1]*40 - 40
+                block.player = self.player
+                self.platform_list.add(block)
+            elif platform[2] == 5:
+                block = Coin()
+                block.rect.x = platform[0]*40
+                block.rect.y = SCREEN_HEIGHT-platform[1]*40 - 40
+                block.player = self.player
+                self.coin_list.add(block)
+            else:
+                block = Spike(platform[2])
+                block.rect.x = platform[0] * 40
+                block.rect.y = SCREEN_HEIGHT - platform[1] * 40 - 40
+                block.player = self.player
+                self.enemy_list.add(block)
 
 
 def main():
     """ Main Program """
     pygame.init()
+    pygame.mixer.init()
+
+    pygame.mixer.Sound('stereomadness.ogg').play(-1)
 
     # Set the height and width of the screen
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
     screen = pygame.display.set_mode(size)
 
-    pygame.display.set_caption("Side-scrolling Platformer")
+    pygame.display.set_caption("Geometry Dash")
 
     # Create the player
     player = Player()
 
-    # Create all the levels
-    level_list = []
-    level_list.append(Level_01(player))
-    level_list.append(Level_02(player))
-
     # Set the current level
-    current_level_no = 0
-    current_level = level_list[current_level_no]
+    current_level = Level_01(player)
+
 
     active_sprite_list = pygame.sprite.Group()
     player.level = current_level
@@ -299,7 +537,7 @@ def main():
 
     # Used to manage how fast the screen updates
     clock = pygame.time.Clock()
-
+    grid = MovingGrid(SCREEN_WIDTH, SCREEN_HEIGHT)
     # -------- Main Program Loop -----------
     while not done:
         for event in pygame.event.get():
@@ -320,6 +558,11 @@ def main():
                 if event.key == pygame.K_RIGHT and player.change_x > 0:
                     player.stop()
 
+        # Draw other game elements
+
+        grid.update(player.change_x, player.change_y)
+        current_level.draw(screen, grid)
+        active_sprite_list.draw(screen)
         # Update the player.
         active_sprite_list.update()
 
@@ -333,25 +576,12 @@ def main():
             current_level.shift_world(-diff)
 
         # If the player gets near the left side, shift the world right (+x)
-        if player.rect.left <= 120:
-            diff = 120 - player.rect.left
-            player.rect.left = 120
+        if player.rect.left <= 200:
+            diff = 200 - player.rect.left
+            player.rect.left = 200
             current_level.shift_world(diff)
 
-        # If the player gets to the end of the level, go to the next level
-        current_position = player.rect.x + current_level.world_shift
-        if current_position < current_level.level_limit:
-            player.rect.x = 120
-            if current_level_no < len(level_list) - 1:
-                current_level_no += 1
-                current_level = level_list[current_level_no]
-                player.level = current_level
 
-        # ALL CODE TO DRAW SHOULD GO BELOW THIS COMMENT
-        current_level.draw(screen)
-        active_sprite_list.draw(screen)
-
-        # ALL CODE TO DRAW SHOULD GO ABOVE THIS COMMENT
 
         # Limit to 60 frames per second
         clock.tick(60)
