@@ -84,12 +84,10 @@ class Player(pygame.sprite.Sprite):
 
         # List of sprites we can bump against
         self.level = None
+        self.jump = False
 
     def update(self):
         """ Move the player. """
-        # Store the initial center position
-        old_center = self.rect.center
-
         # Gravity and movement (rest of your existing update method)
         self.calc_grav()
 
@@ -103,6 +101,7 @@ class Player(pygame.sprite.Sprite):
                 self.rect.right = block.rect.left
             elif self.change_x < 0:
                 self.rect.left = block.rect.right
+
         if len(pygame.sprite.spritecollide(self, self.level.enemy_list, False)) >= 1:
             screen = pygame.display.get_surface()
             # Center of the circle will be the player's center
@@ -177,6 +176,16 @@ class Player(pygame.sprite.Sprite):
         # Blit the rotated image onto the surface
         self.image.blit(rotated_image, (x, y))
 
+
+        if self.jump == True:
+            self.rect.y += 2
+            platform_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
+            self.rect.y -= 2
+
+            # If it is ok to jump, set our speed upwards
+            if len(platform_hit_list) > 0 or self.rect.bottom >= SCREEN_HEIGHT - 40:
+                self.change_y = -18
+
     def calc_grav(self):
         """ Calculate effect of gravity. """
         if self.change_y == 0:
@@ -189,19 +198,6 @@ class Player(pygame.sprite.Sprite):
             self.change_y = 0
             self.rect.y = SCREEN_HEIGHT-40 - self.rect.height
 
-    def jump(self):
-        """ Called when user hits 'jump' button. """
-
-        # move down a bit and see if there is a platform below us.
-        # Move down 2 pixels because it doesn't work well if we only move down 1
-        # when working with a platform moving down.
-        self.rect.y += 2
-        platform_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
-        self.rect.y -= 2
-
-        # If it is ok to jump, set our speed upwards
-        if len(platform_hit_list) > 0 or self.rect.bottom >= SCREEN_HEIGHT-40:
-            self.change_y = -18
 
     # Player-controlled movement:
     def go_left(self):
@@ -236,7 +232,23 @@ class Coin(pygame.sprite.Sprite):
         super().__init__()
 
         self.image = pygame.image.load('coin.gif')
-        self.rect = pygame.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
+        self.rect = self.image.get_rect()
+        self.collected = False
+        self.velocity_y = -10  # Initial upward velocity
+        self.played = False
+    def update(self):
+        if self.collected:
+            if self.played == False:
+                pygame.mixer.Sound('coin.ogg').play()
+            self.played = True
+            self.rect.y += self.velocity_y
+            self.velocity_y += 1
+            if self.rect.bottom < 0:
+                self.remove()
+
+
+
+
 
 
 
@@ -274,6 +286,7 @@ class Level():
             platforms collide with the player. """
         self.platform_list = pygame.sprite.Group()
         self.enemy_list = pygame.sprite.Group()
+        self.coin_list = pygame.sprite.Group()
         self.player = player
 
         # How far this world has been scrolled left/right
@@ -284,6 +297,12 @@ class Level():
         """ Update everything in this level."""
         self.platform_list.update()
         self.enemy_list.update()
+        self.coin_list.update()
+
+        for coin in pygame.sprite.spritecollide(self.player, self.coin_list, False):
+            coin.collected = True
+
+
 
     def draw(self, screen, grid=None):
         """ Draw everything on this level. """
@@ -295,6 +314,7 @@ class Level():
         # Draw all the sprite lists that we have
         self.platform_list.draw(screen)
         self.enemy_list.draw(screen)
+        self.coin_list.draw(screen)
         pygame.draw.rect(screen, DARKBLUE, pygame.Rect(0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40))
         pygame.draw.rect(screen, WHITE, pygame.Rect(0-2, SCREEN_HEIGHT - 40, SCREEN_WIDTH+4, 42), 2)
 
@@ -311,6 +331,9 @@ class Level():
 
         for enemy in self.enemy_list:
             enemy.rect.x += shift_x
+
+        for coin in self.coin_list:
+            coin.rect.x += shift_x
 
 
 # Create platforms for the level
@@ -395,6 +418,26 @@ class Level_01(Level):
                  [78, 1, 1],
                  [79, 1, 1],
                  [80, 1, 1],
+                 [81, 1, 1],
+                 [82, 1, 1],
+                 [83, 1, 1],
+                 [84, 1, 1],
+                 [85, 1, 1],
+                 [86, 1, 1],
+                 [87, 1, 1],
+                 [88, 1, 1],
+                 [89, 1, 1],
+                 [90, 1, 1],
+                 [91, 1, 1],
+                 [92, 1, 1],
+                 [93, 1, 1],
+                 [94, 1, 1],
+                 [95, 1, 1],
+                 [96, 1, 1],
+                 [97, 1, 1],
+                 [98, 1, 1],
+                 [99, 1, 1],
+                 [25, 5, 0],
                  [27, 5, 0],
                  [27, 6, 0],
                  [27, 7, 0],
@@ -449,18 +492,22 @@ class Level_01(Level):
                  [71, 4, 0],
                  [72, 4, 0],
                  [73, 4, 0],
+                 [71, 5, 0],
+                 [71, 6, 1],
                  [74, 4, 0],
+                 [74, 5, 0],
+                 [74, 6, 1],
                  [75, 4, 0],
                  [78, 6, 0],
-                 [83, 11, 1],
-                 [83, 10, 0],
+                 [84, 11, 1],
+                 [84, 10, 0],
                  [83, 9, 0],
                  [82, 9, 0],
                  [84, 9, 0],
                  [85, 9, 0],
                  [86, 9, 0],
-                 [86, 10, 0],
-                 [86, 11, 1],
+                 [85, 10, 0],
+                 [85, 11, 1],
                  [87, 9, 0],
                  [91, 9, 0],
                  [92, 9, 0],
@@ -481,6 +528,10 @@ class Level_01(Level):
                  [100, 14, 0],
                  [100, 15, 0],
                  [100, 16, 0],
+                 [35, 11, 0],
+                 [28, 15, 5],
+                 [50, 14, 5],
+                 [92, 11, 5]
                  ]
 
         # Go through the array above and add platforms
@@ -550,13 +601,15 @@ def main():
                 if event.key == pygame.K_RIGHT:
                     player.go_right()
                 if event.key == pygame.K_UP:
-                    player.jump()
+                    player.jump = True
 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT and player.change_x < 0:
                     player.stop()
                 if event.key == pygame.K_RIGHT and player.change_x > 0:
                     player.stop()
+                if event.key == pygame.K_UP:
+                    player.jump = False
 
         # Draw other game elements
 
@@ -570,15 +623,15 @@ def main():
         current_level.update()
 
         # If the player gets near the right side, shift the world left (-x)
-        if player.rect.right >= 500:
-            diff = player.rect.right - 500
-            player.rect.right = 500
+        if player.rect.right >= 600:
+            diff = player.rect.right - 600
+            player.rect.right = 600
             current_level.shift_world(-diff)
 
         # If the player gets near the left side, shift the world right (+x)
-        if player.rect.left <= 200:
-            diff = 200 - player.rect.left
-            player.rect.left = 200
+        if player.rect.left <= 400:
+            diff = 400 - player.rect.left
+            player.rect.left = 400
             current_level.shift_world(diff)
 
 
