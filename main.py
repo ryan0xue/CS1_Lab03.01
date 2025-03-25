@@ -18,6 +18,8 @@ DARKBLUE = (0, 0, 25)
 SCREEN_WIDTH = 1152
 SCREEN_HEIGHT = 648
 
+position = 0.0
+
 class MovingGrid:
     def __init__(self, screen_width, screen_height, grid_size=40):
         self.screen_width = screen_width
@@ -236,7 +238,7 @@ class Coin(pygame.sprite.Sprite):
         self.collected = False
         self.velocity_y = -10  # Initial upward velocity
         self.played = False
-    def update(self):
+    def update(self, order):
         if self.collected:
             if self.played == False:
                 pygame.mixer.Sound('coin.ogg').play()
@@ -529,9 +531,9 @@ class Level_01(Level):
                  [100, 15, 0],
                  [100, 16, 0],
                  [35, 11, 0],
-                 [28, 15, 5],
-                 [50, 14, 5],
-                 [92, 11, 5]
+                 [28.5, 14.5, 5, 1],
+                 [49.5, 13.5, 5, 2],
+                 [91.5, 11.5, 5, 3]
                  ]
 
         # Go through the array above and add platforms
@@ -543,7 +545,7 @@ class Level_01(Level):
                 block.player = self.player
                 self.platform_list.add(block)
             elif platform[2] == 5:
-                block = Coin()
+                block = Coin(platform[3])
                 block.rect.x = platform[0]*40
                 block.rect.y = SCREEN_HEIGHT-platform[1]*40 - 40
                 block.player = self.player
@@ -557,6 +559,7 @@ class Level_01(Level):
 
 
 def main():
+    global position
     """ Main Program """
     pygame.init()
     pygame.mixer.init()
@@ -579,7 +582,7 @@ def main():
     active_sprite_list = pygame.sprite.Group()
     player.level = current_level
 
-    player.rect.x = 340
+    player.rect.x = 40*8
     player.rect.y = SCREEN_HEIGHT - player.rect.height
     active_sprite_list.add(player)
 
@@ -621,18 +624,20 @@ def main():
 
         # Update items in the level
         current_level.update()
+        position = (player.rect.x - current_level.world_shift - 320) / 40
 
-        # If the player gets near the right side, shift the world left (-x)
-        if player.rect.right >= 600:
-            diff = player.rect.right - 600
-            player.rect.right = 600
-            current_level.shift_world(-diff)
+        if position < 78:
+            # If the player gets near the right side, shift the world left (-x)
+            if player.rect.right >= 600:
+                diff = player.rect.right - 600
+                player.rect.right = 600
+                current_level.shift_world(-diff)
 
-        # If the player gets near the left side, shift the world right (+x)
-        if player.rect.left <= 400:
-            diff = 400 - player.rect.left
-            player.rect.left = 400
-            current_level.shift_world(diff)
+            # If the player gets near the left side, shift the world right (+x)
+            if player.rect.left <= 400:
+                diff = 400 - player.rect.left
+                player.rect.left = 400
+                current_level.shift_world(diff)
 
 
 
