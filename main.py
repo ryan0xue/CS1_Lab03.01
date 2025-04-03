@@ -1,6 +1,8 @@
 '''Bouncing Box'''
 __version__="04.02.2025"
 __author__ = "Ryan Xue"
+#flint session
+#https://app.flintk12.com/activity/pygame-debug-le-1fe068/session/51627d8f-620c-4be0-aa4f-267a61ff157a
 
 import pygame
 
@@ -19,7 +21,7 @@ SCREEN_WIDTH = 1152
 SCREEN_HEIGHT = 648
 
 position = 0.0
-
+cutscene = False
 class MovingGrid:
     def __init__(self, screen_width, screen_height, grid_size=40):
         self.screen_width = screen_width
@@ -88,8 +90,10 @@ class Player(pygame.sprite.Sprite):
         self.level = None
         self.jump = False
 
-    def update(self):
-        """ Move the player. """
+    def update(self, current_level):
+        """ Move the player.
+        :param current_level:
+        """
         # Gravity and movement (rest of your existing update method)
         self.calc_grav()
 
@@ -104,7 +108,7 @@ class Player(pygame.sprite.Sprite):
             elif self.change_x < 0:
                 self.rect.left = block.rect.right
 
-        if len(pygame.sprite.spritecollide(self, self.level.enemy_list, False)) >= 1:
+        if len(pygame.sprite.spritecollide(self, self.level.enemy_list, False, collided=custom_collide)) >= 1:
             screen = pygame.display.get_surface()
             # Center of the circle will be the player's center
             center_x, center_y = self.rect.center
@@ -130,13 +134,10 @@ class Player(pygame.sprite.Sprite):
 
                 # Control speed of expansion
                 pygame.time.delay(20)
-            screen.fill(BLACK)
-            self.level.draw(screen, grid)
-            pygame.display.flip()
-            # Quit the game
-            pygame.time.delay(1000)
-            pygame.quit()
-            exit()
+            #sigmaboy
+            self.rect.x = 40 * 8
+            current_level.shift_world(-current_level.world_shift)
+
         # Move up/down
         self.rect.y += self.change_y
 
@@ -226,6 +227,18 @@ class Platform(pygame.sprite.Sprite):
         self.image = pygame.Surface([width, height])
         self.image.fill(DARKBLUE)
         self.rect = pygame.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
+class End(pygame.sprite.Sprite):
+    """ Platform the user can jump on """
+
+    def __init__(self):
+        """ Platform constructor. Assumes constructed with user passing in
+            an array of 5 numbers like what's defined at the top of this code.
+            """
+        super().__init__()
+
+        self.image = pygame.Surface([40, 640])
+        self.image.fill(GREEN)
+        self.rect = pygame.draw.rect(self.image, WHITE, self.image.get_rect(), 2)
 class Coin(pygame.sprite.Sprite):
     def __init__(self, order):
         """ Platform constructor. Assumes constructed with user passing in
@@ -250,11 +263,6 @@ class Coin(pygame.sprite.Sprite):
                 self.remove()
 
 
-
-
-
-
-
 class Spike(pygame.sprite.Sprite):
     def __init__(self, direction):
         super().__init__()
@@ -277,6 +285,35 @@ class Spike(pygame.sprite.Sprite):
 
         # Create rect
         self.rect = self.image.get_rect()
+
+        # Create a separate collision rect
+        self.collision_rect = pygame.Rect(
+            self.rect.x + 17.5,  # Center horizontally
+            self.rect.y + 17.5,  # Center vertically
+            15,  # Width
+            15   # Height
+        )
+
+
+def custom_collide(player, spike):
+    # Create smaller rects for both player and spike
+    player_rect = pygame.Rect(
+        player.rect.x + 10,  # Adjust these offsets as needed
+        player.rect.y + 10,
+        20,  # Smaller width
+        20  # Smaller height
+    )
+
+    spike_rect = pygame.Rect(
+        spike.rect.x + 15,  # Adjust these offsets as needed
+        spike.rect.y + 15,
+        10,  # Smaller width
+        10  # Smaller height
+    )
+
+    return player_rect.colliderect(spike_rect)
+
+
 
 
 class Level():
@@ -349,7 +386,7 @@ class CoinTracker:
         self.coins_collected = []
 
 # Create platforms for the level
-class Level_01(Level):
+class Level_02(Level):
     """ Definition for level 1. """
     def __init__(self, player, coin_tracker):
         """ Create level 1. """
@@ -472,22 +509,6 @@ class Level_01(Level):
                  [85, 1, 1],
                  [86, 1, 1],
                  [76.25, 2.25, 5, 3],
-                 [100, 1, 0],
-                 [100, 2, 0],
-                 [100, 3, 0],
-                 [100, 4, 0],
-                 [100, 5, 0],
-                 [100, 6, 0],
-                 [100, 7, 0],
-                 [100, 8, 0],
-                 [100, 9, 0],
-                 [100, 10, 0],
-                 [100, 11, 0],
-                 [100, 12, 0],
-                 [100, 13, 0],
-                 [100, 14, 0],
-                 [100, 15, 0],
-                 [100, 16, 0],
                  ]
         for platform in level:
             if platform[2] == 0:
@@ -508,8 +529,13 @@ class Level_01(Level):
                 block.rect.y = SCREEN_HEIGHT - platform[1] * 40 - 40
                 block.player = self.player
                 self.enemy_list.add(block)
+        block = End()
+        block.player = self.player
+        block.rect.x = 4000
+        block.rect.y = SCREEN_HEIGHT - 680
+        self.platform_list.add(block)
 
-class Level_02(Level):
+class Level_01(Level):
     """ Definition for level 1. """
     def __init__(self, player, coin_tracker):
         """ Create level 1. """
@@ -532,23 +558,101 @@ class Level_02(Level):
                  [-12, 16, 0],
                  [10, 2, 0],
                  [11, 2, 0],
+                 [12, 2, 0],
+                 [14, 1, 1],
+                 [15, 1, 1],
+                 [16, 1, 1],
+                 [17, 1, 1],
+                 [18, 1, 1],
+                 [19, 1, 1],
+                 [20, 1, 1],
                  [15, 4, 0],
-                 [100, 1, 0],
-                 [100, 2, 0],
-                 [100, 3, 0],
-                 [100, 4, 0],
-                 [100, 5, 0],
-                 [100, 6, 0],
-                 [100, 7, 0],
-                 [100, 8, 0],
-                 [100, 9, 0],
-                 [100, 10, 0],
-                 [100, 11, 0],
-                 [100, 12, 0],
-                 [100, 13, 0],
-                 [100, 14, 0],
-                 [100, 15, 0],
-                 [100, 16, 0],
+                 [16, 4, 0],
+                 [16, 7, 0],
+                 [16, 10, 0],
+                 [15.75, 11.75, 5, 1],
+                 [17, 4, 0],
+                 [20, 3, 0],
+                 [21, 3, 0],
+                 [22, 3, 0],
+                 [27, 1, 1],
+                 [31, 1, 1],
+                 [35, 1, 1],
+                 [39, 1, 1],
+                 [44, 1, 1],
+                 [45, 1, 1],
+                 [48, 1, 0],
+                 [49, 1, 0],
+                 [50, 1, 0],
+                 [51, 1, 0],
+                 [50, 2, 1],
+                 [52, 1, 0],
+                 [54, 3, 3],
+                 [54, 4, 1],
+                 [55, 3, 3],
+                 [55, 4, 0],
+                 [54.75, 5.75, 5, 2],
+                 [56, 4, 1],
+                 [56, 3, 3],
+                 [58, 1, 0],
+                 [59, 1, 0],
+                 [60, 1, 0],
+                 [59, 2, 1],
+                 [62, 4, 0],
+                 [59, 6, 0],
+                 [60, 6, 2],
+                 [58, 6, 4],
+                 [66, 1, 0],
+                 [68, 4, 0],
+                 [68, 3, 3],
+                 [71, 6, 0],
+                 [71, 5, 3],
+                 [74, 8, 0],
+                 [74, 7, 3],
+                 [78, 8, 0],
+                 [79, 8, 0],
+                 [80, 8, 0],
+                 [81, 8, 0],
+                 [82, 8, 0],
+                 [81, 1, 0],
+                 [81, 2, 0],
+                 [81, 3, 0],
+                 [81, 4, 0],
+                 [82, 1, 1],
+                 [83, 1, 1],
+                 [84, 1, 1],
+                 [85, 1, 1],
+                 [86, 1, 1],
+                 [87, 1, 1],
+                 [88, 1, 1],
+                 [89, 1, 1],
+                 [90, 1, 1],
+                 [91, 1, 1],
+                 [92, 1, 1],
+                 [93, 1, 1],
+                 [94, 1, 1],
+                 [95, 1, 1],
+                 [96, 1, 1],
+                 [97, 1, 1],
+                 [98, 1, 1],
+                 [99, 1, 1],
+                 [80.75, 5.75, 5, 3],
+                 [78, 4, 0],
+                 [79, 1, 1],
+                 [78, 1, 1],
+                 [77, 1, 1],
+                 [81, 7, 0],
+                 [81, 9, 0],
+                 [81, 10, 1],
+                 [85, 7, 0],
+                 [86, 7, 0],
+                 [87, 7, 0],
+                 [88, 7, 0],
+                 [91, 5, 0],
+                 [92, 5, 0],
+                 [93, 5, 0],
+                 [94, 5, 0],
+                 [95, 5, 0],
                  ]
         for platform in level:
             if platform[2] == 0:
@@ -569,6 +673,11 @@ class Level_02(Level):
                 block.rect.y = SCREEN_HEIGHT - platform[1] * 40 - 40
                 block.player = self.player
                 self.enemy_list.add(block)
+        block = End()
+        block.rect.x = 4000
+        block.rect.y = SCREEN_HEIGHT - 680
+        block.player = self.player
+        self.platform_list.add(block)
 
 class Level_03(Level):
     """ Definition for level 1. """
@@ -797,17 +906,21 @@ class Level_03(Level):
                 block.rect.y = SCREEN_HEIGHT - platform[1] * 40 - 40
                 block.player = self.player
                 self.enemy_list.add(block)
+        block = End()
+        block.rect.x = 4000
+        block.rect.y = SCREEN_HEIGHT - 680
+        block.player = self.player
+        self.platform_list.add(block)
 
 def main():
-    global position
+    global position, cutscene
     """ Main Program """
     pygame.init()
     pygame.mixer.init()
-    pygame.mixer.Sound('stereomadness.ogg').play(-1)
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
     screen = pygame.display.set_mode(size)
     coin_tracker = CoinTracker()
-
+    pygame.mixer.Sound('stereomadness.ogg').play(-1)
     pygame.display.set_caption("Geometry Dash")
     player = Player()
 
@@ -816,6 +929,7 @@ def main():
     active_sprite_list = pygame.sprite.Group()
     current_level = levels[lno]
     player.level = current_level
+    endloop = 0
 
     player.rect.x = 40*8
     player.rect.y = SCREEN_HEIGHT - player.rect.height +40
@@ -830,26 +944,31 @@ def main():
     # -------- Main Program Loop -----------
     while not done:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                done = True
+            if cutscene == False:
+                if event.type == pygame.QUIT:
+                    done = True
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                    player.go_left()
-                if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                    player.go_right()
-                if event.key == pygame.K_UP or event.key == pygame.K_w:
-                    player.jump = True
-                if event.key == pygame.K_p:
-                    print(position)
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                        player.go_left()
+                    if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                        player.go_right()
+                    if event.key == pygame.K_UP or event.key == pygame.K_w:
+                        player.jump = True
+                    if event.key == pygame.K_p:
+                        print(position)
 
-            if event.type == pygame.KEYUP:
-                if (event.key == pygame.K_LEFT or event.key == pygame.K_a) and player.change_x < 0:
-                    player.stop()
-                if (event.key == pygame.K_RIGHT or event.key == pygame.K_d) and player.change_x > 0:
-                    player.stop()
-                if event.key == pygame.K_UP or event.key == pygame.K_w:
-                    player.jump = False
+                if event.type == pygame.KEYUP:
+                    if (event.key == pygame.K_LEFT or event.key == pygame.K_a) and player.change_x < 0:
+                        player.stop()
+                    if (event.key == pygame.K_RIGHT or event.key == pygame.K_d) and player.change_x > 0:
+                        player.stop()
+                    if event.key == pygame.K_UP or event.key == pygame.K_w:
+                        player.jump = False
+            else:
+                player.change_y = 0
+                player.change_x = 0
+                player.jump = False
 
         # Draw other game elements
 
@@ -862,7 +981,7 @@ def main():
         for i, coin_order in enumerate(coin_tracker.coins_collected):
             screen.blit(coin_tracker.coin_image, (20 + (int(coin_order)-1) * 50, 20))
         # Update the player.
-        active_sprite_list.update()
+        active_sprite_list.update(current_level)
 
         # Update items in the level
         current_level.update()
@@ -881,12 +1000,61 @@ def main():
                 player.rect.left = 400
                 current_level.shift_world(diff)
         if position > 85:
-            if lno < len(levels) - 1:
-                player.rect.x = 40 * 8
-                lno += 1
-                current_level = levels[lno]
-                player.level = current_level
-                coin_tracker.reset()
+            player.change_y = 0
+            player.change_x = 0
+            player.jump = False
+            if endloop == 0:
+                cutscene = True
+                pygame.mixer.fadeout(5000)
+                pygame.mixer.Sound('end.ogg').play()
+                clock.tick(1)
+            if endloop >= 5:
+                screen.blit(pygame.image.load('Level Complete.png'), (376, 216))
+                screen.blit(pygame.image.load('nocoinbig.png'), (456, 300))
+                screen.blit(pygame.image.load('nocoinbig.png'), (536, 300))
+                screen.blit(pygame.image.load('nocoinbig.png'), (616, 300))
+                if 40 >= endloop > 20:
+                    if endloop == 21:
+                        if 1 in coin_tracker.coins_collected:
+                            pygame.mixer.Sound('cutscenecollection.ogg').play()
+                    if 1 in coin_tracker.coins_collected:
+                        screen.blit(pygame.image.load('coin.png'), (456, 300))
+                elif 40 < endloop <= 60:
+                    if endloop == 41:
+                        if 2 in coin_tracker.coins_collected:
+                            pygame.mixer.Sound('cutscenecollection.ogg').play()
+                    if 1 in coin_tracker.coins_collected:
+                        screen.blit(pygame.image.load('coin.png'), (456, 300))
+                    if 2 in coin_tracker.coins_collected:
+                        screen.blit(pygame.image.load('coin.png'), (536, 300))
+                elif 60 < endloop <= 80:
+                    if endloop == 61:
+                        if 3 in coin_tracker.coins_collected:
+                            pygame.mixer.Sound('cutscenecollection.ogg').play()
+                    if 1 in coin_tracker.coins_collected:
+                        screen.blit(pygame.image.load('coin.png'), (456, 300))
+                    if 2 in coin_tracker.coins_collected:
+                        screen.blit(pygame.image.load('coin.png'), (536, 300))
+                    if 3 in coin_tracker.coins_collected:
+                        screen.blit(pygame.image.load('coin.png'), (616, 300))
+                elif endloop > 80:
+                    clock.tick(1)
+                    if lno < len(levels) - 1:
+                        player.rect.x = 40 * 8
+                        lno += 1
+                        current_level = levels[lno]
+                        player.level = current_level
+                        coin_tracker.reset()
+                    else:
+                        done = True
+                    if lno == 1:
+                        pygame.mixer.Sound('backontrack.ogg').play(-1)
+                    elif lno == 2:
+                        pygame.mixer.Sound('polargeist.ogg').play(-1)
+                    endloop = -1
+                    cutscene = False
+            clock.tick(40)
+            endloop += 1
 
 
 
@@ -903,5 +1071,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# location 84 = win
