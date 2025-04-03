@@ -137,7 +137,6 @@ class Player(pygame.sprite.Sprite):
             #sigmaboy
             self.rect.x = 40 * 8
             current_level.shift_world(-current_level.world_shift)
-
         # Move up/down
         self.rect.y += self.change_y
 
